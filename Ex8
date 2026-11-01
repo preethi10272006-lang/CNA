@@ -1,0 +1,1247 @@
+24bcs155@mepcolinux EX6]$cat ex1_server.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>      // Added for close()
+#include <sys/socket.h>  // Added for Linux socket API
+#include <netinet/in.h>  // Added for sockaddr_in
+#include <arpa/inet.h>   // Added for inet_ntoa
+
+#define PORT 5000
+#define BUFFER_SIZE 1024
+
+int main()
+{
+    int sockfd; // Changed from SOCKET to standard int
+
+    struct sockaddr_in server_addr;
+    struct sockaddr_in client_addr;
+
+    char buffer[BUFFER_SIZE];
+    char reply[BUFFER_SIZE];
+
+    socklen_t addr_len; // Changed int to socklen_t for Linux compliance
+
+    /* Create UDP socket */
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (sockfd < 0) // Linux sockets return -1 on error
+    {
+        printf("Socket creation failed\n");
+        return 1;
+    }
+
+    /* Clear server address */
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    /* Set server address */
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    /* Bind socket */
+    if (bind(sockfd,
+             (struct sockaddr *)&server_addr,
+             sizeof(server_addr)) < 0) // Checked against < 0
+    {
+        printf("Bind failed\n");
+        close(sockfd); // Changed closesocket to close
+        return 1;
+    }
+
+    printf("UDP Chat Server started...\n");
+    printf("Listening on port %d...\n", PORT);
+
+    /*
+     * Iterative communication
+     * Server handles one message at a time.
+     */
+    while (1)
+    {
+        memset(buffer, 0, BUFFER_SIZE);
+
+        addr_len = sizeof(client_addr);
+
+        /* Receive message from any client */
+        int bytes_received = recvfrom(
+            sockfd,
+            buffer,
+            BUFFER_SIZE - 1,
+            0,
+            (struct sockaddr *)&client_addr,
+            &addr_len
+        );
+
+        if (bytes_received < 0)
+        {
+            printf("recvfrom failed\n");
+            continue;
+        }
+
+        buffer[bytes_received] = '\0';
+
+        /* Display client information */
+        printf("\n----------------------------------\n");
+
+        printf("Client IP   : %s\n",
+               inet_ntoa(client_addr.sin_addr));
+
+        printf("Client Port : %d\n",
+               ntohs(client_addr.sin_port));
+
+        printf("Client      : %s", buffer);
+
+        /* Check for exit message */
+        if (strncmp(buffer, "exit", 4) == 0)
+        {
+            printf("Client disconnected.\n");
+            continue;
+        }
+
+        /* Get reply from server */
+        printf("Server      : ");
+
+        fgets(reply, BUFFER_SIZE, stdin);
+
+        /* Send reply to the same client */
+        int bytes_sent = sendto(
+            sockfd,
+            reply,
+            strlen(reply),
+            0,
+            (struct sockaddr *)&client_addr,
+            addr_len
+        );
+
+        if (bytes_sent < 0)
+        {
+            printf("sendto failed\n");
+            continue;
+        }
+
+        printf("Reply sent to client.\n");
+
+        /* Server continues handling other clients */
+    }
+
+    /* Close socket */
+    close(sockfd); // Changed closesocket to close
+
+    return 0;
+}
+[24bcs155@mepcolinux EX6]$cc ex1_server.c
+[24bcs155@mepcolinux EX6]$./a.out
+UDP Chat Server started...
+Listening on port 5000...
+
+----------------------------------
+Client IP   : 127.0.0.1
+Client Port : 33709
+Client      : hiServer      : hello
+Reply sent to client.
+
+----------------------------------
+Client IP   : 127.0.0.1
+Client Port : 33709
+Client      : how are you?Server      : I am fine.
+Reply sent to client.
+
+----------------------------------
+Client IP   : 127.0.0.1
+Client Port : 33709
+Client      : ok you want any helpServer      : no i can manage
+Reply sent to client.
+
+----------------------------------
+Client IP   : 127.0.0.1
+Client Port : 33709
+Client      : ok byeServer      : bye
+Reply sent to client.
+
+----------------------------------
+Client IP   : 127.0.0.1
+Client Port : 33709
+Client      : byeServer      : exit
+Reply sent to client.
+
+----------------------------------
+Client IP   : 127.0.0.1
+Client Port : 33709
+Client      : exitClient disconnected.
+[24bcs155@mepcolinux EX6]$cat ex1_client.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>      // Added for close()
+#include <sys/socket.h>  // Added for Linux socket API
+#include <netinet/in.h>  // Added for sockaddr_in
+#include <arpa/inet.h>   // Added for inet_pton
+
+#define SERVER_IP "127.0.0.1"
+#define SERVER_PORT 5000
+#define BUFFER_SIZE 1024
+
+int main()
+{
+    int sockfd; // Changed from SOCKET to standard int
+
+    struct sockaddr_in server_addr;
+
+    char buffer[BUFFER_SIZE];
+
+    socklen_t addr_len; // Changed int to socklen_t for Linux compliance
+
+    /* Create UDP socket */
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (sockfd < 0) // Linux sockets return -1 on error
+    {
+        printf("Socket creation failed\n");
+        return 1;
+    }
+
+    /* Clear server address */
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    /* Set server address */
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+
+    /* Convert IP address */
+    if (inet_pton(AF_INET,
+                  SERVER_IP,
+                  &server_addr.sin_addr) <= 0)
+    {
+        printf("Invalid server IP address\n");
+        close(sockfd); // Changed closesocket to close
+        return 1;
+    }
+
+    printf("UDP Chat Client started...\n");
+
+    printf("Connected to server %s:%d\n",
+           SERVER_IP,
+           SERVER_PORT);
+
+    while (1)
+    {
+        /* Enter message */
+        printf("\nClient: ");
+
+        fgets(buffer, BUFFER_SIZE, stdin);
+
+        /* Remove newline */
+        buffer[strcspn(buffer, "\n")] = '\0';
+
+        /* Send message to server */
+        int bytes_sent = sendto(
+            sockfd,
+            buffer,
+            strlen(buffer),
+            0,
+            (struct sockaddr *)&server_addr,
+            sizeof(server_addr)
+        );
+
+        if (bytes_sent < 0)
+        {
+            printf("sendto failed\n");
+            break;
+        }
+
+        /* Exit condition */
+        if (strcmp(buffer, "exit") == 0)
+        {
+            printf("Chat ended.\n");
+            break;
+        }
+
+        /* Receive server reply */
+        addr_len = sizeof(server_addr);
+
+        int bytes_received = recvfrom(
+            sockfd,
+            buffer,
+            BUFFER_SIZE - 1,
+            0,
+            (struct sockaddr *)&server_addr,
+            &addr_len
+        );
+
+        if (bytes_received < 0)
+        {
+            printf("recvfrom failed\n");
+            break;
+        }
+
+        /* Null terminate */
+        buffer[bytes_received] = '\0';
+
+        printf("Server: %s\n", buffer);
+
+        /* Check server exit */
+        if (strcmp(buffer, "exit") == 0)
+        {
+            printf("Server ended the chat.\n");
+            break;
+        }
+    }
+
+    /* Close socket */
+    close(sockfd); // Changed closesocket to close
+
+    return 0;
+}
+[24bcs155@mepcolinux EX6]$cc ex1_client.c
+[24bcs155@mepcolinux EX6]$./a.out
+UDP Chat Client started...
+Connected to server 127.0.0.1:5000
+
+Client: hi
+Server: hello
+
+
+Client: how are you?
+Server: I am fine.
+
+
+Client: ok you want any help
+Server: no i can manage
+
+
+Client: ok bye
+bye
+Server: bye
+
+
+Client: exit
+Server: exit
+
+
+Client: Chat ended.
+[24bcs155@mepcolinux EX6]$cat ex2_server.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>      // Added for close()
+#include <sys/socket.h>  // Added for Linux socket API
+#include <netinet/in.h>  // Added for sockaddr_in structures
+#include <arpa/inet.h>   // Added for inet_ntoa, inet_pton, inet_ntop
+
+#define PORT 10240
+#define BUFFER_SIZE 1024
+#define MAX_SUBNETS 256
+
+int main()
+{
+    int sockfd; // Changed from SOCKET to standard int
+
+    struct sockaddr_in server_addr;
+    struct sockaddr_in client_addr;
+
+    char buffer[BUFFER_SIZE];
+    char response[BUFFER_SIZE];
+
+    socklen_t addr_len; // Changed int to socklen_t for Linux compliance
+
+    char base_ip[20];
+
+    int prefix;
+    int num_subnets;
+    int required_hosts;
+    int i;
+    int host_bits;
+    int new_prefix;
+
+    unsigned int subnet_mask;
+    unsigned int base_ip_num;
+
+    int next_ip[MAX_SUBNETS];
+
+    printf("========== UDP DHCP SERVER ==========\n");
+
+    /* Step 1: Base IP Address */
+    printf("Enter Base IP Address: ");
+    scanf("%19s", base_ip);
+
+    /* Step 2: Prefix */
+    printf("Enter Prefix: /");
+    scanf("%d", &prefix);
+
+    /* Step 3: Number of Subnets */
+    printf("Enter Number of Subnets: ");
+    scanf("%d", &num_subnets);
+
+    /* Step 4: Required Hosts */
+    printf("Enter Required Hosts per Subnet: ");
+    scanf("%d", &required_hosts);
+
+    /*
+     * Step 5: Calculate Host Bits
+     */
+    host_bits = 0;
+
+    while ((1 << host_bits) - 2 < required_hosts)
+    {
+        host_bits++;
+    }
+
+    /*
+     * Step 6: Calculate New Prefix
+     */
+    new_prefix = 32 - host_bits;
+
+    /*
+     * Step 7: Calculate Subnet Mask
+     */
+    subnet_mask = 0xFFFFFFFF;
+
+    subnet_mask = subnet_mask << host_bits;
+
+    printf("\n========== NETWORK DETAILS ==========\n");
+
+    printf("Base IP Address     : %s\n", base_ip);
+    printf("Original Prefix     : /%d\n", prefix);
+    printf("Number of Subnets   : %d\n", num_subnets);
+    printf("Required Hosts      : %d\n", required_hosts);
+    printf("Host Bits           : %d\n", host_bits);
+    printf("New Prefix          : /%d\n", new_prefix);
+
+    /*
+     * Display subnet mask
+     */
+    struct in_addr mask_addr;
+
+    mask_addr.s_addr = htonl(subnet_mask);
+
+    printf("Subnet Mask         : %s\n",
+           inet_ntoa(mask_addr));
+
+    /*
+     * Convert Base IP to integer
+     */
+    struct in_addr temp_addr;
+
+    if (inet_pton(AF_INET, base_ip, &temp_addr) != 1)
+    {
+        printf("Invalid Base IP Address\n");
+        return 1;
+    }
+
+    base_ip_num = ntohl(temp_addr.s_addr);
+
+    /*
+     * Initialize IP allocation
+     */
+    for ( i = 0; i < MAX_SUBNETS; i++)
+    {
+        next_ip[i] = 1;
+    }
+
+    /*
+     * Create UDP Socket
+     */
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (sockfd < 0) // Linux sockets return -1 on error
+    {
+        printf("Socket creation failed\n");
+        return 1;
+    }
+
+    /*
+     * Clear server address
+     */
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    /*
+     * Server Address
+     */
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    /*
+     * Bind
+     */
+    if (bind(sockfd,
+             (struct sockaddr *)&server_addr,
+             sizeof(server_addr)) < 0) // Evaluated against < 0
+    {
+        printf("Bind failed\n");
+        close(sockfd); // Changed closesocket to close
+        return 1;
+    }
+
+    printf("\nDHCP UDP Server started...\n");
+    printf("Listening on Port %d...\n", PORT);
+
+    /*
+     * Step 9 onwards:
+     * Iterative UDP Communication
+     */
+
+    while (1)
+    {
+        memset(buffer, 0, BUFFER_SIZE);
+
+        addr_len = sizeof(client_addr);
+
+        /*
+         * Step 10:
+         * Receive Client Request
+         */
+
+        int bytes_received = recvfrom(
+            sockfd,
+            buffer,
+            BUFFER_SIZE - 1,
+            0,
+            (struct sockaddr *)&client_addr,
+            &addr_len
+        );
+
+        if (bytes_received < 0)
+        {
+            printf("recvfrom failed\n");
+            continue;
+        }
+
+        buffer[bytes_received] = '\0';
+
+        printf("\n====================================\n");
+
+        printf("Request received from Client\n");
+
+        printf("Client IP   : %s\n",
+               inet_ntoa(client_addr.sin_addr));
+
+        printf("Client Port : %d\n",
+               ntohs(client_addr.sin_port));
+
+        printf("Request     : %s\n", buffer);
+
+        /*
+         * Client sends:
+         * SUBNET 0
+         * SUBNET 1
+         * SUBNET 2
+         */
+
+        int requested_subnet;
+
+        if (sscanf(buffer,
+                   "SUBNET %d",
+                   &requested_subnet) != 1)
+        {
+            strcpy(response,
+                   "ERROR: Invalid Request");
+
+            sendto(
+                sockfd,
+                response,
+                strlen(response),
+                0,
+                (struct sockaddr *)&client_addr,
+                addr_len
+            );
+
+            continue;
+        }
+
+        /*
+         * Step 11:
+         * Select Requested Subnet
+         */
+
+        if (requested_subnet < 0 ||
+            requested_subnet >= num_subnets)
+        {
+            strcpy(response,
+                   "ERROR: Invalid Subnet");
+
+            sendto(
+                sockfd,
+                response,
+                strlen(response),
+                0,
+                (struct sockaddr *)&client_addr,
+                addr_len
+            );
+
+            continue;
+        }
+
+        /*
+         * Calculate subnet size
+         */
+
+        int subnet_size = 1 << host_bits;
+
+        /*
+         * Calculate selected subnet network
+         */
+
+        unsigned int subnet_network =
+            base_ip_num +
+            (requested_subnet * subnet_size);
+
+        /*
+         * Check available IP
+         */
+
+        if (next_ip[requested_subnet] >=
+            subnet_size - 1)
+        {
+            strcpy(response,
+                   "ERROR: No IP Available");
+
+            sendto(
+                sockfd,
+                response,
+                strlen(response),
+                0,
+                (struct sockaddr *)&client_addr,
+                addr_len
+            );
+
+            continue;
+        }
+
+        /*
+         * Step 12:
+         * Assign IP Address
+         */
+
+        unsigned int assigned_ip =
+            subnet_network +
+            next_ip[requested_subnet];
+
+        next_ip[requested_subnet]++;
+
+        /*
+         * Convert assigned IP to string
+         */
+
+        struct in_addr assigned_addr;
+
+        assigned_addr.s_addr =
+            htonl(assigned_ip);
+
+        char assigned_ip_string[INET_ADDRSTRLEN];
+
+        inet_ntop(
+            AF_INET,
+            &assigned_addr,
+            assigned_ip_string,
+            INET_ADDRSTRLEN
+        );
+
+        /*
+         * Convert network address to string
+         */
+
+        struct in_addr network_addr;
+
+        network_addr.s_addr =
+            htonl(subnet_network);
+
+        char network_ip_string[INET_ADDRSTRLEN];
+
+        inet_ntop(
+            AF_INET,
+            &network_addr,
+            network_ip_string,
+            INET_ADDRSTRLEN
+        );
+
+        /*
+         * Prepare Response
+         */
+
+        sprintf(
+            response,
+            "IP ASSIGNED: %s | SUBNET: %s/%d",
+            assigned_ip_string,
+            network_ip_string,
+            new_prefix
+        );
+
+        printf("Selected Subnet : %d\n",
+               requested_subnet);
+
+        printf("Network Address : %s/%d\n",
+               network_ip_string,
+               new_prefix);
+
+        printf("Assigned IP     : %s\n",
+               assigned_ip_string);
+
+        /*
+         * Step 13:
+         * Send UDP Response
+         */
+
+        int bytes_sent = sendto(
+            sockfd,
+            response,
+            strlen(response),
+            0,
+            (struct sockaddr *)&client_addr,
+            addr_len
+        );
+
+        if (bytes_sent < 0)
+        {
+            printf("sendto failed\n");
+        }
+        else
+        {
+            printf("Response sent to Client.\n");
+        }
+    }
+
+    /*
+     * Close socket
+     */
+    close(sockfd); // Changed closesocket to close
+    return 0;
+}
+[24bcs155@mepcolinux EX6]$cc ex2_server.c
+[24bcs155@mepcolinux EX6]$./a.out
+========== UDP DHCP SERVER ==========
+Enter Base IP Address: 192.168.1.0
+Enter Prefix: /24
+Enter Number of Subnets: 4
+Enter Required Hosts per Subnet: 4
+
+========== NETWORK DETAILS ==========
+Base IP Address     : 192.168.1.0
+Original Prefix     : /24
+Number of Subnets   : 4
+Required Hosts      : 4
+Host Bits           : 3
+New Prefix          : /29
+Subnet Mask         : 255.255.255.248
+
+DHCP UDP Server started...
+Listening on Port 10240...
+
+====================================
+Request received from Client
+Client IP   : 127.0.0.1
+Client Port : 53486
+Request     : SUBNET 0
+Selected Subnet : 0
+Network Address : 192.168.1.0/29
+Assigned IP     : 192.168.1.1
+Response sent to Client.
+
+====================================
+Request received from Client
+Client IP   : 127.0.0.1
+Client Port : 43278
+Request     : SUBNET 1
+Selected Subnet : 1
+Network Address : 192.168.1.8/29
+Assigned IP     : 192.168.1.9
+Response sent to Client.
+
+====================================
+Request received from Client
+Client IP   : 127.0.0.1
+Client Port : 34200
+Request     : SUBNET 4
+[24bcs155@mepcolinux EX6]$cat ex2_client.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>      // Added for close()
+#include <sys/socket.h>  // Added for Linux socket API
+#include <netinet/in.h>  // Added for sockaddr_in structures
+#include <arpa/inet.h>   // Added for inet_pton
+
+#define SERVER_IP "127.0.0.1"
+#define SERVER_PORT 10240
+#define BUFFER_SIZE 1024
+
+int main()
+{
+    int sockfd; // Changed from SOCKET to standard int
+
+    struct sockaddr_in server_addr;
+
+    char buffer[BUFFER_SIZE];
+
+    socklen_t addr_len; // Changed int to socklen_t for Linux compliance
+
+    int subnet_number;
+
+    /*
+     * Create UDP Socket
+     */
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (sockfd < 0) // Linux sockets return -1 on error
+    {
+        printf("Socket creation failed\n");
+        return 1;
+    }
+
+    /*
+     * Clear Server Address
+     */
+    memset(
+        &server_addr,
+        0,
+        sizeof(server_addr)
+    );
+
+    /*
+     * Server Address
+     */
+    server_addr.sin_family = AF_INET;
+
+    server_addr.sin_port =
+        htons(SERVER_PORT);
+
+    /*
+     * Convert Server IP
+     */
+    if (inet_pton(
+            AF_INET,
+            SERVER_IP,
+            &server_addr.sin_addr
+        ) <= 0)
+    {
+        printf("Invalid Server IP\n");
+        close(sockfd); // Changed closesocket to close
+        return 1;
+    }
+
+    printf("========== DHCP UDP CLIENT ==========\n");
+
+    printf(
+        "Connected to DHCP Server %s:%d\n",
+        SERVER_IP,
+        SERVER_PORT
+    );
+
+    /*
+     * Request IP
+     */
+    printf("\nEnter Required Subnet Number: ");
+
+    scanf("%d", &subnet_number);
+
+    /*
+     * Create Request
+     */
+    sprintf(
+        buffer,
+        "SUBNET %d",
+        subnet_number
+    );
+
+    printf(
+        "Sending Request: %s\n",
+        buffer
+    );
+
+    /*
+     * Step 10:
+     * Send Client Request
+     */
+    int bytes_sent = sendto(
+        sockfd,
+        buffer,
+        strlen(buffer),
+        0,
+        (struct sockaddr *)&server_addr,
+        sizeof(server_addr)
+    );
+
+    if (bytes_sent < 0)
+    {
+        printf("sendto failed\n");
+        close(sockfd); // Changed closesocket to close
+        return 1;
+    }
+
+    /*
+     * Receive UDP Response
+     */
+    addr_len =
+        sizeof(server_addr);
+
+    int bytes_received = recvfrom(
+        sockfd,
+        buffer,
+        BUFFER_SIZE - 1,
+        0,
+        (struct sockaddr *)&server_addr,
+        &addr_len
+    );
+
+    if (bytes_received < 0)
+    {
+        printf("recvfrom failed\n");
+        close(sockfd); // Changed closesocket to close
+        return 1;
+    }
+
+    buffer[bytes_received] = '\0';
+
+    /*
+     * Display Assigned IP
+     */
+    printf(
+        "\nServer Response:\n%s\n",
+        buffer
+    );
+
+    /*
+     * Close Socket
+     */
+    close(sockfd); // Changed closesocket to close
+
+    return 0;
+}
+[24bcs155@mepcolinux EX6]$cc ex2_client.c
+[24bcs155@mepcolinux EX6]$./a.out
+========== DHCP UDP CLIENT ==========
+Connected to DHCP Server 127.0.0.1:10240
+
+Enter Required Subnet Number: 0
+Sending Request: SUBNET 0
+
+Server Response:
+IP ASSIGNED: 192.168.1.1 | SUBNET: 192.168.1.0/29
+[24bcs155@mepcolinux EX6]$./a.out
+========== DHCP UDP CLIENT ==========
+Connected to DHCP Server 127.0.0.1:10240
+
+Enter Required Subnet Number: 1
+Sending Request: SUBNET 1
+
+Server Response:
+IP ASSIGNED: 192.168.1.9 | SUBNET: 192.168.1.8/29
+[24bcs155@mepcolinux EX6]$./a.out
+========== DHCP UDP CLIENT ==========
+Connected to DHCP Server 127.0.0.1:10240
+
+Enter Required Subnet Number: 4
+Sending Request: SUBNET 4
+
+Server Response:
+ERROR: Invalid Subnet
+[24bcs155@mepcolinux EX6]$cat ex3_server.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>      // Added for close()
+#include <sys/socket.h>  // Added for Linux socket API
+#include <netinet/in.h>  // Added for sockaddr_in structures
+#include <arpa/inet.h>   // Added for network byte order functions
+
+#define PORT 7000
+#define BUFFER_SIZE 1024
+
+struct dns_record
+{
+    char domain[100];
+    char ip[50];
+};
+
+int main()
+{
+    int sockfd; // Changed from SOCKET to standard int
+
+    struct sockaddr_in server_addr;
+    struct sockaddr_in client_addr;
+
+    char buffer[BUFFER_SIZE];
+    char response[BUFFER_SIZE];
+    int i;
+    socklen_t addr_len; // Changed int to socklen_t for Linux compliance
+
+    /* DNS Records */
+    struct dns_record dns_table[] =
+    {
+        {"google.com", "142.250.195.14"},
+        {"youtube.com", "142.250.72.14"},
+        {"facebook.com", "157.240.241.35"},
+        {"example.com", "93.184.216.34"}
+    };
+
+    int total_records = 4;
+
+    /* Create UDP socket */
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (sockfd < 0) // Linux sockets return -1 on error
+    {
+        printf("Socket creation failed\n");
+        return 1;
+    }
+
+    // Force reuse port to prevent "Bind failed" errors if port 8080 is stuck
+    int opt = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    /* Clear server address */
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    /* Server address */
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(PORT);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+
+    /* Bind socket */
+    if (bind(sockfd,
+             (struct sockaddr *)&server_addr,
+             sizeof(server_addr)) < 0) // Evaluated against < 0
+    {
+        printf("Bind failed\n");
+        close(sockfd); // Changed closesocket to close
+        return 1;
+    }
+
+    printf("UDP DNS Server started...\n");
+    printf("Listening on port %d...\n", PORT);
+
+    /* Iterative DNS Communication */
+    while (1)
+    {
+        memset(buffer, 0, BUFFER_SIZE);
+
+        addr_len = sizeof(client_addr);
+
+        /* Receive domain name from client */
+        int bytes_received = recvfrom(
+            sockfd,
+            buffer,
+            BUFFER_SIZE - 1,
+            0,
+            (struct sockaddr *)&client_addr,
+            &addr_len
+        );
+
+        if (bytes_received < 0)
+        {
+            printf("recvfrom failed\n");
+            continue;
+        }
+
+        buffer[bytes_received] = '\0';
+
+        printf("\nClient requested: %s\n", buffer);
+
+        /* Exit condition */
+        if (strcmp(buffer, "exit") == 0)
+        {
+            strcpy(response, "DNS Server stopped");
+
+            sendto(
+                sockfd,
+                response,
+                strlen(response),
+                0,
+                (struct sockaddr *)&client_addr,
+                addr_len
+            );
+
+            break;
+        }
+
+        /* Search DNS table */
+        int found = 0;
+
+        for (i = 0; i < total_records; i++)
+        {
+            if (strcmp(buffer, dns_table[i].domain) == 0)
+            {
+                strcpy(response, dns_table[i].ip);
+                found = 1;
+                break;
+            }
+        }
+
+        /* Domain not found */
+        if (!found)
+        {
+            strcpy(response, "Domain not found");
+        }
+
+        /* Send IP address to client */
+        int bytes_sent = sendto(
+            sockfd,
+            response,
+            strlen(response),
+            0,
+            (struct sockaddr *)&client_addr,
+            addr_len
+        );
+
+        if (bytes_sent < 0)
+        {
+            printf("sendto failed\n");
+            continue;
+        }
+
+        printf("Response sent: %s\n", response);
+    }
+
+    /* Close socket */
+    close(sockfd); // Changed closesocket to close
+
+    return 0;
+}
+[24bcs155@mepcolinux EX6]$cc ex3_server.c
+[24bcs155@mepcolinux EX6]$./a.out
+UDP DNS Server started...
+Listening on port 7000...
+
+Client requested: google.com
+Response sent: 142.250.195.14
+
+Client requested: youtube.com
+Response sent: 142.250.72.14
+
+Client requested: yahoo.com
+Response sent: Domain not found
+
+Client requested: exit
+[24bcs155@mepcolinux EX6]$cat exx3_client.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>      // Added for close()
+#include <sys/socket.h>  // Added for Linux socket API
+#include <netinet/in.h>  // Added for sockaddr_in structures
+#include <arpa/inet.h>   // Added for inet_pton
+
+#define SERVER_IP "127.0.0.1"
+#define SERVER_PORT 7000
+#define BUFFER_SIZE 1024
+
+int main()
+{
+    int sockfd; // Changed from SOCKET to standard int
+
+    struct sockaddr_in server_addr;
+
+    char buffer[BUFFER_SIZE];
+
+    socklen_t addr_len; // Changed int to socklen_t for Linux compliance
+
+    /* Create UDP socket */
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+
+    if (sockfd < 0) // Linux sockets return -1 on error
+    {
+        printf("Socket creation failed\n");
+        return 1;
+    }
+
+    /* Clear server address */
+    memset(&server_addr, 0, sizeof(server_addr));
+
+    /* Server address */
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(SERVER_PORT);
+
+    /* Convert server IP */
+    if (inet_pton(AF_INET,
+                  SERVER_IP,
+                  &server_addr.sin_addr) <= 0)
+    {
+        printf("Invalid server IP\n");
+        close(sockfd); // Changed closesocket to close
+        return 1;
+    }
+
+    printf("UDP DNS Client started...\n");
+    printf("Server: %s:%d\n",
+           SERVER_IP,
+           SERVER_PORT);
+
+    while (1)
+    {
+        /* Enter domain name */
+        printf("\nEnter domain name: ");
+
+        fgets(buffer, BUFFER_SIZE, stdin);
+
+        /* Remove newline */
+        buffer[strcspn(buffer, "\n")] = '\0';
+
+        /* Send domain to DNS server */
+        int bytes_sent = sendto(
+            sockfd,
+            buffer,
+            strlen(buffer),
+            0,
+            (struct sockaddr *)&server_addr,
+            sizeof(server_addr)
+        );
+
+        if (bytes_sent < 0)
+        {
+            printf("sendto failed\n");
+            break;
+        }
+
+        /* Exit */
+        if (strcmp(buffer, "exit") == 0)
+        {
+            break;
+        }
+
+        /* Receive DNS response */
+        addr_len = sizeof(server_addr);
+
+        int bytes_received = recvfrom(
+            sockfd,
+            buffer,
+            BUFFER_SIZE - 1,
+            0,
+            (struct sockaddr *)&server_addr,
+            &addr_len
+        );
+
+        if (bytes_received < 0)
+        {
+            printf("recvfrom failed\n");
+            break;
+        }
+
+        buffer[bytes_received] = '\0';
+
+        printf("IP Address: %s\n", buffer);
+    }
+
+    /* Close socket */
+    close(sockfd); // Changed closesocket to close
+
+    return 0;
+}
+[24bcs155@mepcolinux EX6]$cc exx3_client.c
+[24bcs155@mepcolinux EX6]$./a.out
+UDP DNS Client started...
+Server: 127.0.0.1:7000
+
+Enter domain name: google.com
+IP Address: 142.250.195.14
+
+Enter domain name: youtube.com
+IP Address: 142.250.72.14
+
+Enter domain name: yahoo.com
+IP Address: Domain not found
+
+Enter domain name: exit
+[24bcs155@mepcolinux EX6]$exit
+exit
+Script done, file is Ex6.prn
+[24bcs155@mepcolinux EX6]$
