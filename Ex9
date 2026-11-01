@@ -1,0 +1,1405 @@
+
+[24bcs155@mepcolinux EX5]$cat c1.prn
+Script started on Fri Aug 21 15:49:05 2026
+[24bcs155@mepcolinux EX5]$cat c1.c
+#include "header.h"
+
+int main(void)
+{
+    int s;
+
+    int arr[MAX];
+    int n;
+    int i;
+
+    struct sockaddr_in servAddr;
+
+    /* Create socket */
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (s < 0)
+    {
+        perror("Socket creation failed");
+        exit(1);
+    }
+
+    /* Server address */
+
+    memset(&servAddr, 0, sizeof(servAddr));
+
+    servAddr.sin_family = AF_INET;
+    servAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    servAddr.sin_port = htons(SERV_PORT);
+
+    /* Connect */
+
+    if (connect(s,
+                (struct sockaddr *)&servAddr,
+                sizeof(servAddr)) < 0)
+    {
+        perror("Connection failed");
+        exit(1);
+    }
+
+    printf("Connected to TCP Server.\n");
+
+    /* Get number of elements */
+
+    printf("Enter number of elements: ");
+    scanf("%d", &n);
+
+    /* Get array */
+
+    printf("Enter %d elements separated by comma: ", n);
+
+    for (i = 0; i < n; i++)
+    {
+        scanf("%d", &arr[i]);
+
+        if (i < n - 1)
+            scanf(",");
+    }
+
+    /* Send number of elements */
+
+    send(s, &n, sizeof(n), 0);
+
+    /* Send array */
+
+    send(s, arr, sizeof(int) * n, 0);
+
+    printf("\nArray sent to server.\n");
+
+    /* Receive number of elements */
+
+    recv(s, &n, sizeof(n), 0);
+
+    /* Receive array */
+
+    recv(s, arr, sizeof(int) * n, 0);
+
+    printf("\nArray received from server:\n");
+
+    for (i = 0; i < n; i++)
+    {
+        printf("%d", arr[i]);
+
+        if (i < n - 1)
+            printf(",");
+    }
+
+    printf("\n");
+
+    /* Close */
+
+    close(s);
+
+    printf("Client closed.\n");
+
+    return 0;
+}
+[24bcs155@mepcolinux EX5]$gcc c1.c -o c1
+[24bcs155@mepcolinux EX5]$./c1
+Connected to TCP Server.
+Enter number of elements: 5
+Enter 5 elements separated by comma: 1,2,3,4,5
+
+Array sent to server.
+
+Array received from server:
+1,2,3,4,5
+Client closed.
+
+[24bcs155@mepcolinux EX5]$cat c2.c
+#include "header.h"
+
+int main(void)
+{
+    int s;
+
+    int arr[MAX];
+    int n;
+    int i;
+    int sum;
+
+    struct sockaddr_in servAddr;
+
+    /* Create socket */
+
+    s = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (s < 0)
+    {
+        perror("Socket creation failed");
+        exit(1);
+    }
+
+    /* Server address */
+
+    memset(&servAddr, 0, sizeof(servAddr));
+
+    servAddr.sin_family = AF_INET;
+    servAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    servAddr.sin_port = htons(SERV_PORT);
+
+    /* Connect */
+
+    if (connect(s,
+                (struct sockaddr *)&servAddr,
+                sizeof(servAddr)) < 0)
+    {
+        perror("Connection failed");
+        exit(1);
+    }
+
+    printf("Connected to TCP Sum Server.\n");
+
+    /* Get number of elements */
+
+    printf("Enter number of elements: ");
+    scanf("%d", &n);
+
+    /* Get array */
+
+    printf("Enter %d elements separated by comma: ", n);
+
+    for (i = 0; i < n; i++)
+    {
+        scanf("%d", &arr[i]);
+
+        if (i < n - 1)
+            scanf(",");
+    }
+
+    /* Send number of elements */
+
+    send(s, &n, sizeof(n), 0);
+
+    /* Send array */
+
+    send(s, arr, sizeof(int) * n, 0);
+
+    printf("\nArray sent to server.\n");
+
+    /* Receive sum */
+
+    recv(s, &sum, sizeof(sum), 0);
+
+    printf("\nSum received from server: %d\n", sum);
+
+    /* Close */
+
+    close(s);
+
+    printf("Client closed.\n");
+
+    return 0;
+}
+[24bcs155@mepcolinux EX5]$gcc c2.c -o c2
+[24bcs155@mepcolinux EX5]$./c2 127.0.0.1 8080
+Connected to TCP Sum Server.
+Enter number of elements: 5
+Enter 5 elements separated by comma: 1,2,3,4,5
+
+Array sent to server.
+
+Sum received from server: 15
+Client closed.
+[24bcs155@mepcolinux EX5]$cat c3.c
+#include "header.h"
+
+/* Convert character into 8-bit binary */
+void char_to_binary(char ch, char binary[])
+{
+    int value;
+    int i;
+
+    value = (int)ch;
+
+    for (i = 7; i >= 0; i--)
+    {
+        if (value >= 128)
+        {
+            binary[7 - i] = '1';
+            value = value - 128;
+        }
+        else
+        {
+            binary[7 - i] = '0';
+        }
+
+        value = value * 2;
+    }
+
+    binary[8] = '\0';
+}
+
+
+/* Convert string into binary */
+void string_to_binary(char text[], char binary[])
+{
+    int i;
+    char temp[9];
+
+    binary[0] = '\0';
+
+    for (i = 0; text[i] != '\0'; i++)
+    {
+        char_to_binary(text[i], temp);
+        strcat(binary, temp);
+    }
+}
+
+
+/* Print binary with 8-bit separation */
+void print_binary(char binary[])
+{
+    int i;
+
+    for (i = 0; binary[i] != '\0'; i++)
+    {
+        printf("%c", binary[i]);
+
+        if ((i + 1) % 8 == 0)
+            printf(" ");
+    }
+
+    printf("\n");
+}
+
+
+/* Convert 8-bit binary to decimal */
+int binary_to_decimal(char binary[])
+{
+    int value;
+    int i;
+
+    value = 0;
+
+    for (i = 0; i < 8; i++)
+    {
+        value = value * 2;
+
+        if (binary[i] == '1')
+            value = value + 1;
+    }
+
+    return value;
+}
+
+
+/* Convert decimal into 8-bit binary */
+void decimal_to_binary(int value, char binary[])
+{
+    int i;
+
+    for (i = 7; i >= 0; i--)
+    {
+        binary[i] = '0' + (value % 2);
+        value = value / 2;
+    }
+
+    binary[8] = '\0';
+}
+
+
+/* Calculate 8-bit checksum */
+int calculate_checksum(char binary[])
+{
+    int sum;
+    int value;
+    int i;
+    int j;
+
+    char byte[9];
+
+    sum = 0;
+
+    for (i = 0; i < strlen(binary); i = i + 8)
+    {
+        for (j = 0; j < 8; j++)
+        {
+            byte[j] = binary[i + j];
+        }
+
+        byte[8] = '\0';
+
+        value = binary_to_decimal(byte);
+
+        sum = sum + value;
+
+        /* Wrap-around carry */
+        while (sum > 255)
+        {
+            sum = (sum % 256) + (sum / 256);
+        }
+    }
+
+    /* 1's complement */
+    return 255 - sum;
+}
+
+
+/* Byte stuffing */
+void byte_stuff(char data[], char stuffed[])
+{
+    int i;
+    int j;
+    int pos;
+
+    char byte[9];
+
+    pos = 0;
+
+    for (i = 0; i < strlen(data); i = i + 8)
+    {
+        for (j = 0; j < 8; j++)
+        {
+            byte[j] = data[i + j];
+        }
+
+        byte[8] = '\0';
+
+
+        /* If byte is FLAG */
+        if (strcmp(byte, "01111110") == 0)
+        {
+            /* Add ESCAPE */
+            for (j = 0; j < 8; j++)
+            {
+                stuffed[pos++] = "01111101"[j];
+            }
+
+            /* Add FLAG */
+            for (j = 0; j < 8; j++)
+            {
+                stuffed[pos++] = "01111110"[j];
+            }
+        }
+
+
+        /* If byte is ESCAPE */
+        else if (strcmp(byte, "01111101") == 0)
+        {
+            /* Add ESCAPE */
+            for (j = 0; j < 8; j++)
+            {
+                stuffed[pos++] = "01111101"[j];
+            }
+
+            /* Add ESCAPE again */
+            for (j = 0; j < 8; j++)
+            {
+                stuffed[pos++] = "01111101"[j];
+            }
+        }
+
+
+        /* Normal byte */
+        else
+        {
+            for (j = 0; j < 8; j++)
+            {
+                stuffed[pos++] = byte[j];
+            }
+        }
+    }
+
+    stuffed[pos] = '\0';
+}
+
+
+/* Error introduction */
+void introduce_error(char data[])
+{
+    int choice;
+    int count;
+    int position;
+    int i;
+
+    printf("\n========================================================\n");
+    printf("                 ERROR INTRODUCTION\n");
+    printf("========================================================\n");
+
+    printf("\nDo you want to introduce error? (1-Yes / 0-No): ");
+    scanf("%d", &choice);
+
+    if (choice == 0)
+    {
+        printf("\nNO ERROR INTRODUCED\n");
+        return;
+    }
+
+    printf("\nHow many bits do you want to change? : ");
+    scanf("%d", &count);
+
+    for (i = 1; i <= count; i++)
+    {
+        printf("Which bit position do you want to change? : ");
+        scanf("%d", &position);
+
+        if (position >= 0 && position < strlen(data))
+        {
+            if (data[position] == '0')
+            {
+                data[position] = '1';
+
+                printf("Bit %d changed: 0 -> 1\n",
+                       position);
+            }
+            else
+            {
+                data[position] = '0';
+
+                printf("Bit %d changed: 1 -> 0\n",
+                       position);
+            }
+        }
+        else
+        {
+            printf("Invalid bit position!\n");
+            i--;
+        }
+    }
+
+    printf("\nERROR INTRODUCED SUCCESSFULLY\n");
+}
+
+
+/* Main */
+int main(int argc, char *argv[])
+{
+    int socket_fd;
+    int port;
+
+    int checksum;
+    int length;
+    int send_length;
+
+    struct sockaddr_in server;
+
+    char text[MAX];
+
+    char binary[MAX * 8];
+
+    char checksum_binary[9];
+
+    char data_with_checksum[MAX * 8];
+
+    char stuffed[MAX * 16];
+
+
+    /* Check command line arguments */
+
+    if (argc != 3)
+    {
+        printf("Usage: %s <IP> <PORT>\n", argv[0]);
+
+        printf("Example: %s 127.0.0.1 8080\n",
+               argv[0]);
+
+        return 1;
+    }
+
+
+    port = atoi(argv[2]);
+
+
+    /* Create socket */
+
+    socket_fd = socket(AF_INET,
+                       SOCK_STREAM,
+                       0);
+
+    if (socket_fd < 0)
+    {
+        perror("Socket creation failed");
+        return 1;
+    }
+
+
+    /* Server address */
+
+    memset(&server, 0, sizeof(server));
+
+    server.sin_family = AF_INET;
+
+    server.sin_addr.s_addr =
+        inet_addr(argv[1]);
+
+    server.sin_port =
+        htons(port);
+
+
+    /* Connect to server */
+
+    if (connect(socket_fd,
+                (struct sockaddr *)&server,
+                sizeof(server)) < 0)
+    {
+        perror("Connection failed");
+
+        close(socket_fd);
+
+        return 1;
+    }
+
+
+    printf("\n========================================================\n");
+    printf("                    BYTE STUFFING\n");
+    printf("========================================================\n");
+
+    printf("\nFLAG   : 01111110\n");
+    printf("ESCAPE : 01111101\n");
+
+
+    printf("\n-------------------- SENDER SIDE -----------------------\n");
+
+
+    /* Input string */
+
+    printf("\nEnter string: ");
+
+    /*
+       IMPORTANT:
+       No getchar() here.
+       Otherwise first character may disappear.
+    */
+
+    fgets(text, MAX, stdin);
+
+
+    /* Remove newline */
+
+    if (strlen(text) > 0 &&
+        text[strlen(text) - 1] == '\n')
+    {
+        text[strlen(text) - 1] = '\0';
+    }
+
+
+    printf("\nOriginal Data:\n");
+
+    printf("%s\n", text);
+
+
+    /* Convert string to binary */
+
+    string_to_binary(text,
+                     binary);
+
+
+    printf("\nOriginal Data in Binary:\n");
+
+    print_binary(binary);
+
+
+    /* Calculate checksum */
+
+    checksum =
+        calculate_checksum(binary);
+
+
+    decimal_to_binary(checksum,
+                      checksum_binary);
+
+
+    printf("\nChecksum:\n");
+
+    printf("%s\n",
+           checksum_binary);
+
+
+    /* Original data + checksum */
+
+    data_with_checksum[0] = '\0';
+
+    strcat(data_with_checksum,
+           binary);
+
+    strcat(data_with_checksum,
+           checksum_binary);
+
+
+    printf("\nOriginal Data + Checksum:\n");
+
+    print_binary(data_with_checksum);
+
+
+    /* Byte stuffing */
+
+    byte_stuff(data_with_checksum,
+               stuffed);
+
+
+    printf("\n---------------- BYTE STUFFING ----------------\n");
+
+
+    printf("\nStuffed Data:\n");
+
+    print_binary(stuffed);
+
+
+    /* Error introduction */
+
+    introduce_error(stuffed);
+
+
+    printf("\nModified Stuffed Data:\n");
+
+    print_binary(stuffed);
+
+
+    /* Send length */
+
+    length = strlen(stuffed);
+
+    send_length = htonl(length);
+
+
+    if (send(socket_fd,
+             &send_length,
+             sizeof(send_length),
+             0) < 0)
+    {
+        perror("Sending length failed");
+
+        close(socket_fd);
+
+        return 1;
+    }
+
+
+    /* Send stuffed data */
+
+    if (send(socket_fd,
+             stuffed,
+             length,
+             0) < 0)
+    {
+        perror("Sending data failed");
+
+        close(socket_fd);
+
+        return 1;
+    }
+
+
+    printf("\nConnected to server successfully.\n");
+
+    printf("PPP data sent successfully.\n");
+
+    printf("Client socket closed.\n");
+
+
+    close(socket_fd);
+
+    return 0;
+}
+[24bcs155@mepcolinux EX5]$gcc c3.c -o c3
+[24bcs155@mepcolinux EX5]$./c3 127.0.0.1 8081
+
+========================================================
+                    BYTE STUFFING
+========================================================
+
+FLAG   : 01111110
+ESCAPE : 01111101
+
+-------------------- SENDER SIDE -----------------------
+
+Enter string: HELLO EVEYONE
+
+Original Data:
+HELLO EVERYONE
+
+Original Data in Binary:
+01001000 01000101 01001100 01001100 01001111 00100000 01000101 01010110 01000101 01010010 01011001 01001111 01001110 01000101 00100000
+
+Checksum:
+11011010
+
+Original Data + Checksum:
+01001000 01000101 01001100 01001100 01001111 00100000 01000101 01010110 01000101 01010010 01011001 01001111 01001110 01000101 00100000 11011010
+
+---------------- BYTE STUFFING ----------------
+
+Stuffed Data:
+01001000 01000101 01001100 01001100 01001111 00100000 01000101 01010110 01000101 01010010 01011001 01001111 01001110 01000101 00100000 11011010
+
+========================================================
+                 ERROR INTRODUCTION
+========================================================
+
+Do you want to introduce error? (1-Yes / 0-No): 0
+
+NO ERROR INTRODUCED
+
+Modified Stuffed Data:
+01001000 01000101 01001100 01001100 01001111 00100000 01000101 01010110 01000101 01010010 01011001 01001111 01001110 01000101 00100000 11011010
+
+Connected to server successfully.
+PPP data sent successfully.
+Client socket closed.
+[24bcs155@mepcolinux EX5]$cat s1.c
+#include "header.h"
+
+int main(void)
+{
+    int ls;
+    int s;
+
+    int arr[MAX];
+    int n;
+    int i;
+
+    struct sockaddr_in servAddr;
+    struct sockaddr_in clientAddr;
+
+    socklen_t clientAddrLen;
+
+    /* Create server address */
+
+    memset(&servAddr, 0, sizeof(servAddr));
+
+    servAddr.sin_family = AF_INET;
+    servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servAddr.sin_port = htons(SERV_PORT);
+
+    /* Create socket */
+
+    ls = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (ls < 0)
+    {
+        perror("Socket creation failed");
+        exit(1);
+    }
+
+    /* Bind */
+
+    if (bind(ls,
+             (struct sockaddr *)&servAddr,
+             sizeof(servAddr)) < 0)
+    {
+        perror("Binding failed");
+        exit(1);
+    }
+
+    /* Listen */
+
+    if (listen(ls, 16) < 0)
+    {
+        perror("Listening failed");
+        exit(1);
+    }
+
+    printf("TCP Server started...\n");
+    printf("Waiting for client...\n");
+
+    /* Accept client */
+
+    clientAddrLen = sizeof(clientAddr);
+
+    s = accept(ls,
+               (struct sockaddr *)&clientAddr,
+               &clientAddrLen);
+
+    if (s < 0)
+    {
+        perror("Accept failed");
+        exit(1);
+    }
+
+    printf("Client connected.\n");
+
+    /* Receive number of elements */
+
+    recv(s, &n, sizeof(n), 0);
+
+    /* Receive array */
+
+    recv(s, arr, sizeof(int) * n, 0);
+
+    printf("\nArray received from client:\n");
+
+    for (i = 0; i < n; i++)
+    {
+        printf("%d", arr[i]);
+
+        if (i < n - 1)
+            printf(",");
+    }
+
+    printf("\n");
+
+    /* Send number of elements */
+
+    send(s, &n, sizeof(n), 0);
+
+    /* Send array back */
+
+    send(s, arr, sizeof(int) * n, 0);
+
+    printf("Array sent back to client.\n");
+
+    /* Close */
+
+    close(s);
+    close(ls);
+
+    printf("Server closed.\n");
+
+    return 0;
+}
+[24bcs155@mepcolinux EX5]$gcc s1.c -o s1
+[24bcs155@mepcolinux EX5]$./s1
+TCP Server started...
+Waiting for client...
+Client connected.
+
+Array received from client:
+1,2,3,4,5
+Array sent back to client.
+Server closed.
+[24bcs155@mepcolinux EX5]$cat s2.c
+#include "header.h"
+
+int main(void)
+{
+    int ls;
+    int s;
+
+    int arr[MAX];
+    int n;
+    int i;
+    int sum;
+
+    struct sockaddr_in servAddr;
+    struct sockaddr_in clientAddr;
+
+    socklen_t clientAddrLen;
+
+    /* Server address */
+
+    memset(&servAddr, 0, sizeof(servAddr));
+
+    servAddr.sin_family = AF_INET;
+    servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servAddr.sin_port = htons(SERV_PORT);
+
+    /* Create socket */
+
+    ls = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (ls < 0)
+    {
+        perror("Socket creation failed");
+        exit(1);
+    }
+
+    /* Bind */
+
+    if (bind(ls,
+             (struct sockaddr *)&servAddr,
+             sizeof(servAddr)) < 0)
+    {
+        perror("Binding failed");
+        exit(1);
+    }
+
+    /* Listen */
+
+    if (listen(ls, 16) < 0)
+    {
+        perror("Listening failed");
+        exit(1);
+    }
+
+    printf("TCP Sum Server started...\n");
+    printf("Waiting for client...\n");
+
+    /* Accept */
+
+    clientAddrLen = sizeof(clientAddr);
+
+    s = accept(ls,
+               (struct sockaddr *)&clientAddr,
+               &clientAddrLen);
+
+    if (s < 0)
+    {
+        perror("Accept failed");
+        exit(1);
+    }
+
+    printf("Client connected.\n");
+
+    /* Receive number of elements */
+
+    recv(s, &n, sizeof(n), 0);
+
+    /* Receive array */
+
+    recv(s, arr, sizeof(int) * n, 0);
+
+    printf("\nArray received from client:\n");
+
+    for (i = 0; i < n; i++)
+    {
+        printf("%d", arr[i]);
+
+        if (i < n - 1)
+            printf(",");
+    }
+
+    printf("\n");
+
+    /* Calculate sum */
+
+    sum = 0;
+
+    for (i = 0; i < n; i++)
+    {
+        sum = sum + arr[i];
+    }
+
+    printf("Sum calculated by server: %d\n", sum);
+
+    /* Send sum to client */
+
+    send(s, &sum, sizeof(sum), 0);
+
+    printf("Sum sent to client.\n");
+
+    /* Close */
+
+    close(s);
+    close(ls);
+
+    printf("Server closed.\n");
+
+    return 0;
+}
+[24bcs155@mepcolinux EX5]$gcc s2.c -o s2
+[24bcs155@mepcolinux EX5]$./s2
+TCP Sum Server started...
+Waiting for client...
+Client connected.
+
+Array received from client:
+1,2,3,4,5
+Sum calculated by server: 15
+Sum sent to client.
+Server closed.
+[24bcs155@mepcolinux EX5]$cat s3.c
+#include "header.h"
+
+/* Receive complete data */
+int receive_all(int socket_fd, char data[], int size)
+{
+    int total;
+    int received;
+
+    total = 0;
+
+    while (total < size)
+    {
+        received = recv(socket_fd,
+                        data + total,
+                        size - total,
+                        0);
+
+        if (received <= 0)
+            return -1;
+
+        total = total + received;
+    }
+
+    return total;
+}
+
+/* Print binary with 8-bit separation */
+void print_binary(char binary[])
+{
+    int i;
+
+    for (i = 0; binary[i] != '\0'; i++)
+    {
+        printf("%c", binary[i]);
+
+        if ((i + 1) % 8 == 0)
+            printf(" ");
+    }
+
+    printf("\n");
+}
+
+/* Convert 8-bit binary to decimal */
+int binary_to_decimal(char binary[])
+{
+    int value;
+    int i;
+
+    value = 0;
+
+    for (i = 0; i < 8; i++)
+    {
+        value = value * 2;
+
+        if (binary[i] == '1')
+            value = value + 1;
+    }
+
+    return value;
+}
+
+/* Byte destuffing */
+void byte_destuff(char stuffed[], char destuffed[])
+{
+    int i;
+    int j;
+    int pos;
+    char byte[9];
+
+    pos = 0;
+
+    for (i = 0; i < strlen(stuffed); i = i + 8)
+    {
+        for (j = 0; j < 8; j++)
+            byte[j] = stuffed[i + j];
+
+        byte[8] = '\0';
+
+        /* ESCAPE found */
+        if (strcmp(byte, "01111101") == 0)
+        {
+            i = i + 8;
+
+            for (j = 0; j < 8; j++)
+                destuffed[pos++] = stuffed[i + j];
+        }
+        else
+        {
+            for (j = 0; j < 8; j++)
+                destuffed[pos++] = byte[j];
+        }
+    }
+
+    destuffed[pos] = '\0';
+}
+
+/* Checksum verification */
+int verify_checksum(char data[], char checksum[])
+{
+    int sum;
+    int value;
+    int i;
+    int j;
+    char byte[9];
+
+    sum = 0;
+
+    /* Add data bytes */
+    for (i = 0; i < strlen(data); i = i + 8)
+    {
+        for (j = 0; j < 8; j++)
+            byte[j] = data[i + j];
+
+        byte[8] = '\0';
+
+        value = binary_to_decimal(byte);
+
+        sum = sum + value;
+
+        /* Wrap-around carry */
+        while (sum > 255)
+        {
+            sum = (sum % 256) + (sum / 256);
+        }
+    }
+
+    /* Add checksum */
+    value = binary_to_decimal(checksum);
+
+    sum = sum + value;
+
+    /* Wrap-around carry */
+    while (sum > 255)
+    {
+        sum = (sum % 256) + (sum / 256);
+    }
+
+    return sum;
+}
+
+/* Binary to string */
+void binary_to_string(char binary[], char text[])
+{
+    int i;
+    int j;
+    int value;
+    int pos;
+
+    pos = 0;
+
+    for (i = 0; i + 7 < strlen(binary); i = i + 8)
+    {
+        value = 0;
+
+        for (j = 0; j < 8; j++)
+        {
+            value = value * 2;
+
+            if (binary[i + j] == '1')
+                value = value + 1;
+        }
+
+        text[pos++] = (char)value;
+    }
+
+    text[pos] = '\0';
+}
+
+int main(void)
+{
+    int listen_socket;
+    int client_socket;
+    int length;
+    int i;
+    int result;
+
+    struct sockaddr_in server;
+    struct sockaddr_in client;
+
+    socklen_t client_length;
+
+    char stuffed[MAX * 16];
+    char destuffed[MAX * 16];
+
+    char data[MAX * 8];
+    char received_checksum[9];
+
+    char received_string[MAX];
+
+    char result_binary[9];
+
+    /* Socket */
+    listen_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (listen_socket < 0)
+    {
+        perror("Socket creation failed");
+        return 1;
+    }
+
+    /* Server address */
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr = htonl(INADDR_ANY);
+    server.sin_port = htons(8081);
+
+    /* Bind */
+    if (bind(listen_socket,
+             (struct sockaddr *)&server,
+             sizeof(server)) < 0)
+    {
+        perror("Binding failed");
+        return 1;
+    }
+
+    /* Listen */
+    if (listen(listen_socket, 5) < 0)
+    {
+        perror("Listen failed");
+        return 1;
+    }
+
+    printf("\n========================================================\n");
+    printf("                    BYTE STUFFING\n");
+    printf("========================================================\n");
+
+    printf("\nFLAG   : 01111110\n");
+    printf("ESCAPE : 01111101\n");
+
+    printf("\nTCP Server started...\n");
+    printf("Waiting for client...\n");
+
+    /* Accept */
+    client_length = sizeof(client);
+
+    client_socket = accept(listen_socket,
+                           (struct sockaddr *)&client,
+                           &client_length);
+
+    if (client_socket < 0)
+    {
+        perror("Accept failed");
+        return 1;
+    }
+
+    printf("\nClient connected successfully.\n");
+
+    /* Receive length */
+    receive_all(client_socket,
+                (char *)&length,
+                sizeof(length));
+
+    length = ntohl(length);
+
+    /* Receive stuffed data */
+    receive_all(client_socket,
+                stuffed,
+                length);
+
+    stuffed[length] = '\0';
+
+    printf("\n---------------- RECEIVER SIDE ----------------\n");
+
+    printf("\nReceived Stuffed Data:\n");
+    print_binary(stuffed);
+
+    /* Destuff */
+    byte_destuff(stuffed, destuffed);
+
+    printf("\n---------------- BYTE DESTUFFING ----------------\n");
+
+    printf("\nAfter Byte Destuffing:\n");
+    print_binary(destuffed);
+
+    /*
+       Last 8 bits = checksum
+       Remaining bits = original data
+    */
+
+    for (i = 0; i < 8; i++)
+    {
+        received_checksum[i] =
+            destuffed[strlen(destuffed) - 8 + i];
+    }
+
+    received_checksum[8] = '\0';
+
+    for (i = 0; i < strlen(destuffed) - 8; i++)
+    {
+        data[i] = destuffed[i];
+    }
+
+    data[strlen(destuffed) - 8] = '\0';
+
+    printf("\nOriginal Data in Binary:\n");
+    print_binary(data);
+
+    printf("\nReceived Checksum:\n");
+    printf("%s\n", received_checksum);
+
+    /* Checksum */
+    printf("\n========================================================\n");
+    printf("                 CHECKSUM VERIFICATION\n");
+    printf("========================================================\n");
+
+    result = verify_checksum(data,
+                             received_checksum);
+
+    decimal_to_binary:
+    for (i = 7; i >= 0; i--)
+    {
+        result_binary[i] = '0' + (result % 2);
+        result = result / 2;
+    }
+
+    result_binary[8] = '\0';
+
+    printf("\nFinal Result:\n");
+    printf("%s\n", result_binary);
+
+    if (strcmp(result_binary, "11111111") == 0)
+    {
+        printf("\nCHECKSUM VALID\n");
+        printf("NO ERROR DETECTED\n");
+    }
+    else
+    {
+        printf("\nCHECKSUM INVALID\n");
+        printf("ERROR DETECTED\n");
+    }
+
+    /* Binary to string */
+    binary_to_string(data,
+                     received_string);
+
+    printf("\n========================================================\n");
+    printf("                  RECEIVED DATA\n");
+    printf("========================================================\n");
+
+    printf("\nBinary:\n");
+    print_binary(data);
+
+    printf("\nString:\n");
+    printf("%s\n", received_string);
+
+    close(client_socket);
+    close(listen_socket);
+
+    printf("\nServer socket closed.\n");
+
+    return 0;
+}
+
+[24bcs155@mepcolinux EX5]$gcc s3.c -o s3
+[24bcs155@mepcolinux EX5]$./s3
+
+========================================================
+                    BYTE STUFFING
+========================================================
+
+FLAG   : 01111110
+ESCAPE : 01111101
+
+TCP Server started...
+Waiting for client...
+
+Client connected successfully.
+
+---------------- RECEIVER SIDE ----------------
+
+Received Stuffed Data:
+01001000 01000101 01001100 01001100 01001111 00100000 01000101 01010110 01000101 01010010 01011001 01001111 01001110 01000101 00100000 11011010
+
+---------------- BYTE DESTUFFING ----------------
+
+After Byte Destuffing:
+01001000 01000101 01001100 01001100 01001111 00100000 01000101 01010110 01000101 01010010 01011001 01001111 01001110 01000101 00100000 11011010
+
+Original Data in Binary:
+01001000 01000101 01001100 01001100 01001111 00100000 01000101 01010110 01000101 01010010 01011001 01001111 01001110 01000101 00100000
+
+Received Checksum:
+11011010
+
+========================================================
+                 CHECKSUM VERIFICATION
+========================================================
+
+Final Result:
+11111111
+
+CHECKSUM VALID
+NO ERROR DETECTED
+
+========================================================
+                  RECEIVED DATA
+========================================================
+
+Binary:
+01001000 01000101 01001100 01001100 01001111 00100000 01000101 01010110 01000101 01010010 01011001 01001111 01001110 01000101 00100000
+
+String:
+HELLO EVERYONE
+
+Server socket closed.
+[24bcs155@mepcolinux EX5]$exit
+exit
+
+Script done on Fri Aug 21 15:53:14 2026
+[24bcs155@mepcolinux EX5]$
